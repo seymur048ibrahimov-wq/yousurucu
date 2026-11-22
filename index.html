@@ -76,6 +76,35 @@ select option{color:#000}
 .big{font-size:42px;text-align:center;margin:12px 0}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;z-index:30}
 .modal>div{width:100%;background:#0a1c1a;border-radius:24px 24px 0 0;padding:20px 16px calc(20px + var(--safe-b));max-height:85%;overflow:auto}
+#ovr{position:fixed;inset:0;z-index:40;background:rgba(2,10,9,.94);display:flex;flex-direction:column;padding:calc(14px + var(--safe-t)) 16px calc(16px + var(--safe-b))}
+#ovr .hd{display:flex;align-items:center;justify-content:space-between}
+.ring{position:relative;width:64px;height:64px}
+.ring svg{transform:rotate(-90deg)}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:22px}
+#ovr .pr{text-align:center;margin:10px 0 2px;font-size:56px;font-weight:800;color:var(--em);letter-spacing:-.02em}
+#ovr .sub{text-align:center;color:var(--mut);font-size:14px}
+.ovc{background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:14px;margin-top:14px}
+.ovc .l{display:flex;gap:12px;align-items:flex-start;padding:6px 0}
+.ovc .l+.l{border-top:1px dashed var(--line2)}
+.dot{width:12px;height:12px;border-radius:50%;margin-top:5px;flex:none}
+.dot.a{background:var(--em)}.dot.b{background:var(--pink);border-radius:3px}
+.ovc small{color:var(--mut);display:block;font-size:12px}
+.ovc b{font-size:16px}
+#ovr .acts{margin-top:auto;display:flex;gap:10px;align-items:stretch}
+#ovr .acts .x{flex:0 0 64px;border-radius:18px;border:1px solid var(--line2);font-size:26px;background:rgba(255,255,255,.06)}
+#ovr .acts .ok{flex:1;padding:20px;border-radius:18px;background:var(--grad);color:#032018;font-weight:800;font-size:20px}
+#v-nav{position:fixed;inset:0;z-index:12;background:#0a1c1a}
+#gmap{position:absolute;inset:0}
+#navTop{position:absolute;left:10px;right:10px;top:calc(10px + var(--safe-t));z-index:3;background:rgba(7,25,24,.96);border:1px solid var(--line2);border-radius:20px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#navTop .m{display:flex;gap:12px;align-items:center}
+#navTop .ic{font-size:34px;width:44px;text-align:center}
+#navTop .t{font-size:17px;font-weight:700;line-height:1.25}
+#navTop .d{color:var(--em);font-weight:800;font-size:20px}
+#navTop .s{color:var(--mut);font-size:12px;margin-top:6px}
+#navSheet{position:absolute;left:0;right:0;bottom:0;z-index:3;background:rgba(7,25,24,.98);border-radius:24px 24px 0 0;border-top:1px solid var(--line2);padding:14px 16px calc(14px + var(--safe-b));box-shadow:0 -10px 30px rgba(0,0,0,.5)}
+#navCenter{position:absolute;right:12px;bottom:calc(var(--sheet-h,260px) + 12px);z-index:3;width:48px;height:48px;border-radius:50%;background:#0a1c1a;border:1px solid var(--line2);font-size:22px}
+.mapfail{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--mut)}
+.chip{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;background:rgba(16,201,143,.15);color:var(--em)}
 </style>
 </head>
 <body>
@@ -94,6 +123,8 @@ select option{color:#000}
     <button data-t="me"><span>👤</span>Profil</button>
   </nav>
 </div>
+<div id="ovr" class="hidden"></div>
+<div id="v-nav" class="hidden"></div>
 <div id="toast"></div>
 
 <script type="module">
@@ -116,7 +147,37 @@ const db = getFirestore(fbApp);
 
 const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 const CLASSES = [["eko", "Ekonom"], ["komfort", "Komfort"], ["biznes", "Biznes"], ["xl", "Minivan"], ["yuk", "Yük daşıma"], ["pet", "Ev heyvanı"]];
-const RADIUS_KM = 8, MAX_AGE_MS = 5 * 60 * 1000;
+const RADIUS_KM = 8, MAX_AGE_MS = 5 * 60 * 1000, OV_SEC = 20;
+const GMAPS_KEY = "AIzaSyAQcVU7_ac2e73cMF__xd_t40Xu2kJchF4";
+const STYLE_DARK = [ 
+  { elementType: "geometry", stylers: [{ color: "#10272a" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#a3c4c0" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0b1d1f" }, { weight: 3 }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#2c5458" }] },
+  { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d6f2ec" }] },
+  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#7fa9a4" }] },
+  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#132f33" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#0f2a27" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#143236" }] },
+  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#11463a" }] },
+  { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2a4c52" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#0d2124" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#b4d3cf" }] },
+  { featureType: "road.local", elementType: "geometry.fill", stylers: [{ color: "#22403f" }] },
+  { featureType: "road.arterial", elementType: "geometry.fill", stylers: [{ color: "#33616a" }] },
+  { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#1d7f7c" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#0b3c3f" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#e3fff8" }] },
+  { featureType: "transit.line", elementType: "geometry", stylers: [{ color: "#3a2a44" }] },
+  { featureType: "transit.station", stylers: [{ visibility: "off" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0a4a6b" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#6cc3e6" }] }
+];
+
+
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
@@ -124,6 +185,9 @@ const money = (n) => (Math.round((+n || 0) * 100) / 100).toFixed(2);
 function toast(t, ms) { const x = $("toast"); x.textContent = t; x.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => x.classList.remove("on"), ms || 2800); }
 function hav(a, b) { const R = 6371, r = (d) => d * Math.PI / 180; const dLa = r(b.lat - a.lat), dLo = r(b.lng - a.lng); const x = Math.sin(dLa / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); }
 function bearing(a, b) { const r = (d) => d * Math.PI / 180, y = Math.sin(r(b.lng - a.lng)) * Math.cos(r(b.lat)), x = Math.cos(r(a.lat)) * Math.sin(r(b.lat)) - Math.sin(r(a.lat)) * Math.cos(r(b.lat)) * Math.cos(r(b.lng - a.lng)); return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360; }
+const fmtKm = (m) => m < 950 ? Math.max(10, Math.round(m / 10) * 10) + " m" : (m / 1000).toFixed(1) + " km";
+const fmtMin = (sec) => { const m = Math.max(1, Math.round(sec / 60)); return m < 60 ? m + " dəq" : Math.floor(m / 60) + " s " + (m % 60) + " dəq"; };
+const commOf = (price) => Math.round((+price || 0) * (S.settings.commissionPct || 0) / 100 * 100) / 100;
 const AE = {
   "auth/invalid-credential": "E-poçt və ya parol yanlışdır", "auth/wrong-password": "Parol yanlışdır", "auth/user-not-found": "Bu e-poçtla hesab yoxdur",
   "auth/email-already-in-use": "Bu e-poçt artıq qeydiyyatdadır", "auth/weak-password": "Parol ən azı 6 simvol olmalıdır", "auth/invalid-email": "E-poçt düzgün deyil",
@@ -134,7 +198,7 @@ function fbErr(e) { const c = e && e.code || ""; if (AE[c]) return AE[c]; if (c 
 /* ---------------- Vəziyyət ---------------- */
 const S = {
   me: null, prof: null, tab: "home", online: localStorage.getItem("bgsOnline") === "1",
-  pos: null, rides: [], hidden: new Set(), active: null, history: [], settings: { waitFree: 3, waitPerMin: 0.2 },
+  pos: null, rides: [], hidden: new Set(), active: null, history: [], settings: { waitFree: 3, waitPerMin: 0.2, commissionPct: 0 }, nav: null, navBuilt: false, gm: null,
   lastSent: null, lastSentAt: 0, demo: false
 };
 let unsubProf = null, unsubRides = null, unsubActive = null, watchId = null, wakeLock = null, beepCtx = null, seenRides = new Set();
@@ -237,7 +301,7 @@ function onPos(g) {
   S.pos = { lat: c.latitude, lng: c.longitude, acc: Math.round(c.accuracy || 0), heading: Math.round(h || 0) };
   const moved = S.lastSent ? hav(S.lastSent, S.pos) * 1000 : 999;
   if (S.online && (!S.lastSent || (Date.now() - S.lastSentAt > 5000 && (moved > 12 || Date.now() - S.lastSentAt > 20000)))) pushState();
-  filterRides();
+  filterRides(); if (S.active) navTick();
 }
 function startGeo() {
   if (watchId != null || !navigator.geolocation) { if (!navigator.geolocation) toast("Bu cihazda yer xidməti yoxdur"); return; }
@@ -267,7 +331,7 @@ function watchRides() {
   }, (e) => { toast(fbErr(e), 4000); });
 }
 function filterRides() {
-  if (S.demo) { S.rides = S.online && !S.active ? demoRides().filter((r) => !S.hidden.has(r.id)) : []; if (S.tab === "home" && !S.active) renderHome(); return; }
+  if (S.demo) { S.rides = S.online && !S.active ? demoRides().filter((r) => !S.hidden.has(r.id)) : []; if (S.tab === "home" && !S.active) renderHome(); renderOverlay(); return; }
   if (!S.allRides || !S.prof) return;
   const now = Date.now();
   S.rides = S.allRides.filter((r) => !S.hidden.has(r.id) && r.cls === S.prof.cls && now - (r.createdAtMs || now) < MAX_AGE_MS && r.pickup && (!S.pos || hav(S.pos, r.pickup) <= RADIUS_KM))
@@ -275,6 +339,7 @@ function filterRides() {
   let fresh = false; for (const r of S.rides) if (!seenRides.has(r.id)) { seenRides.add(r.id); fresh = true; }
   if (fresh) beep();
   if (S.tab === "home" && !S.active) renderHome();
+  renderOverlay();
 }
 setInterval(() => { if (S.online && !S.active && S.tab === "home") filterRides(); }, 15000);
 
@@ -313,12 +378,12 @@ async function setStatus(r, status) {
   if (S.demo) {
     if (status === "arrived") S.active = { ...r, status, arrivedAtMs: Date.now() };
     else if (status === "ongoing") S.active = { ...r, status, startedAtMs: Date.now() };
-    else if (status === "completed") { const wf = waitFee(r, Date.now()); S.history.unshift({ ...r, status, completedAtMs: Date.now(), finalPrice: Math.round(((+r.price || 0) + wf) * 10) / 10 }); S.active = null; toast("Səfər tamamlandı ✅ (demo)", 3000); filterRides(); }
+    else if (status === "completed") { const wf = waitFee(r, Date.now()); { const fp = Math.round(((+r.price || 0) + wf) * 10) / 10, cm = commOf(fp); S.history.unshift({ ...r, status, completedAtMs: Date.now(), finalPrice: fp, commission: cm, driverEarning: Math.round((fp - cm) * 100) / 100 }); } S.active = null; toast("Səfər tamamlandı ✅ (demo)", 3000); filterRides(); }
     return route();
   }
   if (status === "arrived") patch.arrivedAtMs = Date.now();
   if (status === "ongoing") patch.startedAtMs = Date.now();
-  if (status === "completed") { const now = Date.now(), wf = waitFee(r, now); patch.completedAtMs = now; patch.waitFee = wf; patch.finalPrice = Math.round(((+r.price || 0) + wf) * 10) / 10; }
+  if (status === "completed") { const now = Date.now(), wf = waitFee(r, now); patch.completedAtMs = now; patch.waitFee = wf; patch.finalPrice = Math.round(((+r.price || 0) + wf) * 10) / 10; patch.commissionPct = S.settings.commissionPct || 0; patch.commission = commOf(patch.finalPrice); patch.driverEarning = Math.round((patch.finalPrice - patch.commission) * 100) / 100; }
   try { await updateDoc(doc(db, "taxiRides", r.id), patch); if (status === "completed") toast("Səfər tamamlandı ✅ " + money(patch.finalPrice) + " ₼", 4000); }
   catch (e) { toast(fbErr(e), 4000); }
 }
@@ -339,7 +404,7 @@ const navUrl = (p) => `https://www.google.com/maps/dir/?api=1&destination=${p.la
 /* ---------------- Ana səhifə ---------------- */
 function renderHome() {
   show("home"); const el = $("v-home");
-  if (S.active) return renderActive(el);
+  if (S.active) return renderNav();
   el.innerHTML = `<div class="sw ${S.online ? "on" : ""}" id="swOn"><div><h3 style="margin:0">${S.online ? "Xəttdəsiniz" : "Xəttdən kənardasınız"}</h3><div class="mut">${S.online ? "Yaxınlıqdakı sifarişlər göstərilir" : "Sifariş almaq üçün xəttə çıxın"}</div></div><div class="tog"></div></div>`
     + (S.online ? (S.pos ? "" : `<div class="card mut">📡 Yeriniz müəyyən edilir…</div>`) : "")
     + (S.online ? (S.rides.length ? S.rides.map(rideCard).join("") : `<div class="card" style="text-align:center"><div class="big">🔍</div><div class="mut">Hazırda yaxınlıqda sifariş yoxdur.<br>Yeni sifariş gələndə səs çalacaq.</div></div>`) : `<div class="card" style="text-align:center"><div class="big">😴</div><div class="mut">Xəttə çıxmaq üçün yuxarıdakı düyməni basın.<br>Ekran açıq qalacaq və yeriniz sərnişinlərə göstəriləcək.</div></div>`);
@@ -353,37 +418,181 @@ function rideCard(r) {
   <div class="mut">${r.pay === "cash" ? "💵 Nağd" : "💳 Kart"}${r.prefsText ? " · " + esc(r.prefsText) : ""}${r.note ? " · “" + esc(r.note) + "”" : ""}</div>
   <div class="row" style="margin-top:10px"><button class="btn sec" data-skip="${r.id}">Keç</button><button class="btn" data-acc="${r.id}">Qəbul et</button></div></div>`;
 }
-let activeTick = null;
-function renderActive(el) {
-  const r = S.active, st = r.status;
-  const title = { accepted: "Sərnişinə doğru gedin", arrived: "Sərnişini gözləyirsiniz", ongoing: "Səfər davam edir" }[st];
-  const target = st === "ongoing" ? r.dropoff : r.pickup;
-  const stops = (r.stops || []).map((s) => `<div class="a">➕ ${esc((s.addr || "").split(",")[0])}</div>`).join("");
-  const wf = waitFee(r), tot = money((+r.price || 0) + wf);
-  el.innerHTML = `<div class="card"><span class="badge ${st === "ongoing" ? "" : "w"}">${title}</span><div class="p" style="font-size:30px;font-weight:800;margin:8px 0;color:var(--em)">${tot} ₼</div>
-    <div class="mut">${esc(r.name || "Sərnişin")} · ${esc(r.km)} km · ${r.pay === "cash" ? "💵 Nağd" : "💳 Kart"}${wf ? " · gözləmə +" + money(wf) + " ₼" : ""}</div></div>
-    <div class="card"><div class="a">📍 ${esc(r.pickup.addr || "")}</div>${stops}<div class="a">🏁 ${esc((r.dropoff && r.dropoff.addr) || "")}</div>${r.prefsText ? `<div class="mut">${esc(r.prefsText)}</div>` : ""}${r.note ? `<div class="mut">“${esc(r.note)}”</div>` : ""}</div>
-    <div class="row"><a class="btn sec" href="tel:${esc(r.phone || "")}">📞 Zəng</a><a class="btn sec" href="sms:${esc(r.phone || "")}">💬 SMS</a></div>
-    <a class="btn" style="margin-top:10px" target="_blank" rel="noopener" href="${navUrl(target)}">🧭 Naviqasiya</a>
-    ${st === "accepted" ? `<button class="btn" id="aArr" style="margin-top:10px;background:var(--sea)">📍 Çatdım</button>` : ""}
-    ${st === "arrived" ? `<button class="btn" id="aStart" style="margin-top:10px">▶ Səfəri başlat</button><p class="mut" id="wTxt" style="text-align:center"></p>` : ""}
-    ${st === "ongoing" ? `<button class="btn" id="aDone" style="margin-top:10px">✅ Səfəri bitir</button>` : ""}
-    ${st !== "ongoing" ? `<button class="btn red" id="aCan" style="margin-top:10px">Ləğv et</button>` : ""}`;
+/* ---------------- Naviqasiya (xəritə + dönmə-dönmə təlimat) ---------------- */
+function loadMaps() {
+  return new Promise((res, rej) => {
+    if (window.google && google.maps && google.maps.Map) return res();
+    window.__gmcb = () => res();
+    const sc = document.createElement("script");
+    sc.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&v=weekly&libraries=geometry&language=az&region=AZ&loading=async&callback=__gmcb`;
+    sc.async = true; sc.onerror = () => rej(new Error("Google Maps yüklənmədi"));
+    document.head.appendChild(sc); setTimeout(() => rej(new Error("Google Maps cavab vermədi")), 12000);
+  });
+}
+function decodePoly(str) {
+  let i = 0, lat = 0, lng = 0; const out = [];
+  while (i < str.length) { for (const k of [0, 1]) { let sh = 0, r = 0, c; do { c = str.charCodeAt(i++) - 63; r |= (c & 31) << sh; sh += 5; } while (c >= 32); const d = (r & 1) ? ~(r >> 1) : (r >> 1); if (k) lng += d; else lat += d; } out.push({ lat: lat / 1e5, lng: lng / 1e5 }); }
+  return out;
+}
+async function routeNew(pts) {
+  const wp = (p) => ({ location: { latLng: { latitude: p.lat, longitude: p.lng } } });
+  const r = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": GMAPS_KEY, "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.legs.steps.distanceMeters,routes.legs.steps.endLocation,routes.legs.steps.navigationInstruction" },
+    body: JSON.stringify({ origin: wp(pts[0]), destination: wp(pts[pts.length - 1]), intermediates: pts.slice(1, -1).map(wp), travelMode: "DRIVE", routingPreference: "TRAFFIC_AWARE", languageCode: "az", regionCode: "AZ", units: "METRIC" })
+  });
+  const j = await r.json(); if (!r.ok) throw new Error((j.error && (j.error.status + ": " + j.error.message)) || "HTTP " + r.status);
+  const rt = (j.routes || [])[0]; if (!rt || !rt.polyline) throw new Error("Routes API marşrut qaytarmadı");
+  const steps = []; (rt.legs || []).forEach((l) => (l.steps || []).forEach((st) => { const e = st.endLocation && st.endLocation.latLng; if (!e) return; const ni = st.navigationInstruction || {}; steps.push({ m: st.distanceMeters || 0, text: ni.instructions || "", man: ni.maneuver || "", end: { lat: e.latitude, lng: e.longitude } }); }));
+  return { meters: rt.distanceMeters, sec: parseFloat(rt.duration || "0"), path: decodePoly(rt.polyline.encodedPolyline), steps };
+}
+async function routeOld(pts) {
+  const ds = new google.maps.DirectionsService();
+  const r = await ds.route({ origin: pts[0], destination: pts[pts.length - 1], waypoints: pts.slice(1, -1).map((p) => ({ location: { lat: p.lat, lng: p.lng }, stopover: true })), travelMode: "DRIVING", region: "az" });
+  const rt = r.routes[0]; if (!rt) throw new Error("Directions API marşrut qaytarmadı");
+  const steps = []; rt.legs.forEach((l) => l.steps.forEach((st) => steps.push({ m: st.distance.value, text: String(st.instructions || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(), man: String(st.maneuver || "").toUpperCase().replace(/-/g, "_"), end: st.end_location.toJSON() })));
+  return { meters: rt.legs.reduce((a, l) => a + l.distance.value, 0), sec: rt.legs.reduce((a, l) => a + l.duration.value, 0), path: rt.overview_path.map((q) => q.toJSON()), steps };
+}
+async function fetchRoute(from, to, via) {
+  const pts = [from, ...via, to];
+  try { return await routeNew(pts); } catch (e) { if (window.google && google.maps && google.maps.DirectionsService) return await routeOld(pts); throw e; }
+}
+const MAN = { TURN_LEFT: "⬅️", TURN_RIGHT: "➡️", TURN_SLIGHT_LEFT: "↖️", TURN_SLIGHT_RIGHT: "↗️", TURN_SHARP_LEFT: "↙️", TURN_SHARP_RIGHT: "↘️", UTURN_LEFT: "↩️", UTURN_RIGHT: "↪️", KEEP_LEFT: "↖️", KEEP_RIGHT: "↗️", FORK_LEFT: "↖️", FORK_RIGHT: "↗️", MERGE: "⬆️", STRAIGHT: "⬆️", RAMP_LEFT: "↖️", RAMP_RIGHT: "↗️", ROUNDABOUT_LEFT: "🔄", ROUNDABOUT_RIGHT: "🔄" };
+const manIcon = (m) => MAN[m] || (String(m).startsWith("ROUNDABOUT") ? "🔄" : String(m).startsWith("UTURN") ? "↩️" : "⬆️");
+const wazeUrl = (p) => `https://waze.com/ul?ll=${p.lat},${p.lng}&navigate=yes`;
+const targetOf = (r) => (r.status === "ongoing" ? r.dropoff : r.pickup);
+
+let navMk = {}, navLines = [], waitTick = null;
+function hideNav() {
+  const v = $("v-nav"); if (v.classList.contains("hidden")) return;
+  v.classList.add("hidden"); v.innerHTML = ""; S.navBuilt = false; S.nav = null; S.gm = null; navMk = {}; navLines = []; clearInterval(waitTick);
+}
+function renderNav() {
+  const r = S.active, v = $("v-nav");
+  if (watchId == null) startGeo();
+  if (!S.navBuilt) {
+    v.innerHTML = `<div id="gmap"></div><div id="navTop"></div><button id="navCenter" title="Mərkəzə">🎯</button><div id="navSheet"></div>`;
+    v.classList.remove("hidden"); S.navBuilt = true; S.nav = null;
+    loadMaps().then(() => {
+      if (!S.navBuilt) return;
+      S.gm = new google.maps.Map($("gmap"), { center: S.pos || r.pickup, zoom: 16, disableDefaultUI: true, clickableIcons: false, gestureHandling: "greedy", styles: STYLE_DARK, backgroundColor: "#10272a", keyboardShortcuts: false });
+      S.gm.addListener("dragstart", () => { if (S.nav) S.nav.follow = false; });
+      drawNav();
+    }).catch((e) => { const g = $("gmap"); if (g) g.innerHTML = `<div class="mapfail"><div><div style="font-size:42px">🗺️</div><b>Xəritə açılmadı</b><br>${esc(e.message)}<br>Naviqasiya üçün aşağıdakı düymələrdən istifadə edin.</div></div>`; });
+    $("navCenter").onclick = () => { if (S.nav) S.nav.follow = true; if (S.gm && S.pos) { S.gm.panTo(S.pos); S.gm.setZoom(17); } };
+  }
+  const key = r.id + ":" + (r.status === "ongoing" ? "o" : r.status === "arrived" ? "w" : "a");
+  if (!S.nav || S.nav.key !== key) { S.nav = { key, route: null, i: 0, follow: true, lastRoute: 0, busy: false, err: null }; drawNav(); }
+  paintSheet(r); paintTop();
+  if (r.status !== "arrived" && !S.nav.route && !S.nav.busy) planRoute();
+}
+async function planRoute() {
+  const N = S.nav, r = S.active; if (!N || !r || r.status === "arrived") return;
+  if (!S.pos) return;                       // yer gələndə navTick yenidən çağıracaq
+  N.busy = true; N.lastRoute = Date.now();
+  try {
+    const rt = await fetchRoute(S.pos, targetOf(r), r.status === "ongoing" ? (r.stops || []) : []);
+    if (S.nav !== N) return; N.route = rt; N.i = 0; N.err = null;
+  } catch (e) { if (S.nav !== N) return; N.err = e.message || String(e); }
+  N.busy = false; drawNav(); paintTop();
+}
+function drawNav() {
+  const g = S.gm, r = S.active, N = S.nav; if (!g || !r || !N) return;
+  navLines.forEach((l) => l.setMap(null)); navLines = [];
+  const mk = (id, pos, label) => { if (navMk[id]) navMk[id].setMap(null); navMk[id] = pos ? new google.maps.Marker({ position: pos, map: g, label: { text: label, color: "#fff", fontWeight: "800" } }) : null; };
+  mk("A", r.status === "ongoing" ? null : r.pickup, "A"); mk("B", r.dropoff, "B");
+  if (N.route && N.route.path.length > 1) {
+    navLines.push(new google.maps.Polyline({ path: N.route.path, strokeColor: "#10C98F", strokeOpacity: 0.25, strokeWeight: 14, map: g, zIndex: 1 }));
+    navLines.push(new google.maps.Polyline({ path: N.route.path, strokeColor: "#12A9CC", strokeOpacity: 1, strokeWeight: 6, map: g, zIndex: 2 }));
+    if (!S.pos) { const b = new google.maps.LatLngBounds(); N.route.path.forEach((q) => b.extend(q)); g.fitBounds(b, 60); }
+  }
+  moveCar();
+}
+function moveCar() {
+  const g = S.gm; if (!g || !S.pos) return;
+  const icon = { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 6, rotation: S.pos.heading || 0, fillColor: "#10C98F", fillOpacity: 1, strokeColor: "#04100F", strokeWeight: 2 };
+  if (!navMk.car) navMk.car = new google.maps.Marker({ position: S.pos, map: g, icon, zIndex: 9 }); else { navMk.car.setPosition(S.pos); navMk.car.setIcon(icon); }
+  if (S.nav && S.nav.follow) g.panTo(S.pos);
+}
+function distToPath(path, p) { let m = Infinity; for (let k = 0; k < path.length; k += 1) { const d = hav(p, path[k]) * 1000; if (d < m) m = d; } return m; }
+function navTick() {
+  const N = S.nav, r = S.active; if (!N || !r || !S.pos) return;
+  moveCar();
+  if (r.status === "arrived") return;
+  if (!N.route) { if (!N.busy && Date.now() - N.lastRoute > 6000) planRoute(); return; }
+  const st = N.route.steps;
+  while (N.i < st.length - 1 && hav(S.pos, st[N.i].end) * 1000 < 25) N.i++;
+  if (!N.busy && Date.now() - N.lastRoute > 15000 && distToPath(N.route.path, S.pos) > 150) { toast("Marşrut yenilənir…", 1500); N.route = null; planRoute(); return; }
+  paintTop();
+}
+function remaining(N) {
+  const st = N.route.steps, cur = S.pos && st[N.i] ? hav(S.pos, st[N.i].end) * 1000 : 0;
+  let m = cur; for (let k = N.i + 1; k < st.length; k++) m += st[k].m;
+  const ratio = N.route.meters ? N.route.sec / N.route.meters : 0.12; return { m, sec: m * ratio };
+}
+function paintTop() {
+  const el = $("navTop"), N = S.nav, r = S.active; if (!el || !N || !r) return;
+  const tgt = targetOf(r);
+  if (r.status === "arrived") { el.innerHTML = `<div class="m"><div class="ic">📍</div><div><div class="t">Sərnişini gözləyirsiniz</div><div class="mut">${esc((r.pickup.addr || "").split(",")[0])}</div></div></div>`; return; }
+  if (N.err && !N.route) { el.innerHTML = `<div class="m"><div class="ic">⚠️</div><div><div class="t">Marşrut alınmadı</div><div class="mut">${esc(N.err).slice(0, 90)}</div></div></div><div class="s">Google Maps / Waze düyməsindən istifadə edin</div>`; return; }
+  if (!N.route) { el.innerHTML = `<div class="m"><div class="ic">⏳</div><div><div class="t">${S.pos ? "Marşrut hazırlanır…" : "Yeriniz müəyyən edilir…"}</div></div></div>`; return; }
+  const st = N.route.steps[N.i], rem = remaining(N), dNext = st && S.pos ? hav(S.pos, st.end) * 1000 : 0;
+  const last = N.i >= N.route.steps.length - 1;
+  el.innerHTML = `<div class="m"><div class="ic">${last ? "🏁" : manIcon(st && st.man)}</div><div style="flex:1"><div class="d">${fmtKm(dNext)}</div><div class="t">${esc((st && st.text) || (last ? "Təyinat nöqtəsinə çatırsınız" : "Düz davam edin"))}</div></div></div>
+  <div class="s">${r.status === "ongoing" ? "Təyinata" : "Sərnişinə"}: ${fmtKm(rem.m)} · ${fmtMin(rem.sec)}${r.status === "accepted" && rem.m < 80 ? " · <b style='color:var(--em)'>Çatdınız? “Çatdım” basın</b>" : ""}</div>`;
+}
+function paintSheet(r) {
+  const el = $("navSheet"); if (!el) return; const st = r.status, wf = waitFee(r), tot = money((+r.price || 0) + wf), cm = commOf((+r.price || 0) + wf), net = money((+r.price || 0) + wf - cm);
+  const title = { accepted: "Sərnişinə doğru gedin", arrived: "Sərnişini gözləyirsiniz", ongoing: "Səfər davam edir" }[st], tgt = targetOf(r);
+  el.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:6px"><div><b style="font-size:18px">${title}</b><div class="mut">${esc(r.name || "Sərnişin")} · ${esc(r.km)} km · ${r.pay === "cash" ? "💵 Nağd" : "💳 Kart"}</div></div><div style="text-align:right;flex:none"><div style="font-size:24px;font-weight:800;color:var(--em)">${tot} ₼</div><div class="mut">${cm > 0 ? "Xalis " + net + " ₼" : "Komissiya 0%"}${wf ? " · gözləmə +" + money(wf) : ""}</div></div></div>
+  <div class="mut" style="margin:4px 0 10px">${st === "ongoing" ? "🏁" : "📍"} ${esc(tgt.addr || "")}${(r.stops || []).length && st === "ongoing" ? ` · +${r.stops.length} dayanacaq` : ""}${r.note ? `<br>“${esc(r.note)}”` : ""}</div>
+  <div class="row"><a class="btn sec" href="tel:${esc(r.phone || "")}" style="padding:11px">📞 Zəng</a><a class="btn sec" href="sms:${esc(r.phone || "")}" style="padding:11px">💬 SMS</a><a class="btn sec" target="_blank" rel="noopener" href="${navUrl(tgt)}" style="padding:11px">🧭 Google</a><a class="btn sec" target="_blank" rel="noopener" href="${wazeUrl(tgt)}" style="padding:11px">Waze</a></div>
+  ${st === "accepted" ? `<button class="btn" id="aArr" style="margin-top:10px;background:var(--sea);padding:18px">📍 Çatdım</button>` : ""}
+  ${st === "arrived" ? `<button class="btn" id="aStart" style="margin-top:10px;padding:18px">▶ Səfəri başlat</button><p class="mut" id="wTxt" style="text-align:center;margin:8px 0 0"></p>` : ""}
+  ${st === "ongoing" ? `<button class="btn" id="aDone" style="margin-top:10px;padding:18px">✅ Səfəri bitir · ${tot} ₼</button>` : ""}
+  ${st !== "ongoing" ? `<p style="text-align:center;margin:10px 0 0"><button class="lnk" id="aCan" style="color:#ff7b8c">Sifarişi ləğv et</button></p>` : ""}`;
   if ($("aArr")) $("aArr").onclick = () => setStatus(r, "arrived");
   if ($("aStart")) $("aStart").onclick = () => setStatus(r, "ongoing");
   if ($("aDone")) $("aDone").onclick = () => { if (confirm("Səfəri bitirmək istəyirsiniz? Sərnişindən " + tot + " ₼ alın.")) setStatus(r, "completed"); };
   if ($("aCan")) $("aCan").onclick = () => cancelActive(r);
-  clearInterval(activeTick);
-  if (st === "arrived") activeTick = setInterval(() => { const x = $("wTxt"); if (!x || !S.active) return clearInterval(activeTick); const t = Math.floor((Date.now() - r.arrivedAtMs) / 1000), fr = ((r.tariff && r.tariff.waitFree) != null ? r.tariff.waitFree : S.settings.waitFree) * 60, left = fr - t; x.textContent = left > 0 ? `Pulsuz gözləmə: ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `Pulsuz gözləmə bitdi · +${money(waitFee(r))} ₼`; }, 1000);
+  clearInterval(waitTick);
+  if (st === "arrived") waitTick = setInterval(() => { const x = $("wTxt"); if (!x || !S.active) return clearInterval(waitTick); const t = Math.floor((Date.now() - r.arrivedAtMs) / 1000), fr = ((r.tariff && r.tariff.waitFree) != null ? r.tariff.waitFree : S.settings.waitFree) * 60, left = fr - t; x.textContent = left > 0 ? `Pulsuz gözləmə: ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `Pulsuz gözləmə bitdi · +${money(waitFee(r))} ₼`; }, 1000);
+  const h = el.offsetHeight; if (h) $("v-nav").style.setProperty("--sheet-h", h + "px");
+}
+
+/* ---------------- Bolt tipli gələn sifariş pəncərəsi ---------------- */
+let ovTimer = null, ovBeep = null;
+function hideOverlay() { $("ovr").classList.add("hidden"); $("ovr").innerHTML = ""; clearInterval(ovTimer); clearInterval(ovBeep); S.ovId = null; }
+function renderOverlay() {
+  const r = S.prof && S.prof.approved && S.online && !S.active && S.me ? S.rides[0] : null;
+  if (!r) return hideOverlay();
+  if (S.ovId === r.id) return;
+  hideOverlay(); S.ovId = r.id; const t0 = Date.now(), el = $("ovr"), cm = commOf(r.price), net = money((+r.price || 0) - cm);
+  const pick = r._d != null ? `${r._d.toFixed(1)} km · ≈ ${Math.max(1, Math.round(r._d / 0.45))} dəq` : "—";
+  el.innerHTML = `<div class="hd"><span class="chip">${esc((CLASSES.find((c) => c[0] === r.cls) || [, r.cls])[1])}</span><div class="ring"><svg width="64" height="64"><circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="6"/><circle id="ovArc" cx="32" cy="32" r="28" fill="none" stroke="#10C98F" stroke-width="6" stroke-linecap="round" stroke-dasharray="176" stroke-dashoffset="0"/></svg><b id="ovSec">${OV_SEC}</b></div></div>
+    <div class="pr">${net} ₼</div><div class="sub">${cm > 0 ? `Sifariş ${money(r.price)} ₼ · komissiya ${S.settings.commissionPct}% (−${money(cm)} ₼)` : `Komissiya 0% · sizin qazancınız`}</div>
+    <div class="ovc"><div class="l"><span class="dot a"></span><div><b>${esc((r.pickup.addr || "").split(",").slice(0, 2).join(","))}</b><small>Götürülmə · ${pick}</small></div></div>
+      <div class="l"><span class="dot b"></span><div><b>${esc(((r.dropoff && r.dropoff.addr) || "").split(",").slice(0, 2).join(","))}</b><small>Təyinat · ${esc(r.km)} km${r.min ? " · ≈ " + fmtMin(r.min * 60) : ""}</small></div></div></div>
+    <div class="ovc" style="margin-top:10px"><small>${r.pay === "cash" ? "💵 Nağd ödəniş" : "💳 Kartla ödəniş"}${r.prefsText ? " · " + esc(r.prefsText) : ""}${(r.stops || []).length ? " · " + r.stops.length + " dayanacaq" : ""}${r.note ? " · “" + esc(r.note) + "”" : ""}</small></div>
+    <div class="acts"><button class="x" id="ovNo" aria-label="Rədd et">✕</button><button class="ok" id="ovOk">Qəbul et</button></div>`;
+  el.classList.remove("hidden"); beep();
+  ovBeep = setInterval(beep, 2500);
+  $("ovOk").onclick = () => { const id = r.id; hideOverlay(); accept(id); };
+  $("ovNo").onclick = () => { S.hidden.add(r.id); hideOverlay(); filterRides(); };
+  ovTimer = setInterval(() => {
+    const left = OV_SEC - (Date.now() - t0) / 1000;
+    if (left <= 0) { S.hidden.add(r.id); hideOverlay(); toast("Sifariş vaxtı bitdi"); filterRides(); return; }
+    const a = $("ovArc"), sc = $("ovSec"); if (a) a.style.strokeDashoffset = String(176 * (1 - left / OV_SEC)); if (sc) sc.textContent = Math.ceil(left);
+  }, 200);
 }
 
 /* ---------------- Qazanc ---------------- */
 function renderEarn() {
   show("earn"); const now = new Date(), d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), w0 = d0 - ((now.getDay() + 6) % 7) * 86400000;
-  const sum = (from) => S.history.filter((r) => (r.completedAtMs || 0) >= from).reduce((a, r) => a + (+r.finalPrice || +r.price || 0), 0), cnt = (from) => S.history.filter((r) => (r.completedAtMs || 0) >= from).length;
+  const sum = (from) => S.history.filter((r) => (r.completedAtMs || 0) >= from).reduce((a, r) => a + (r.driverEarning != null ? +r.driverEarning : (+r.finalPrice || +r.price || 0)), 0), cnt = (from) => S.history.filter((r) => (r.completedAtMs || 0) >= from).length;
   $("v-earn").innerHTML = `<h2>Qazanc</h2><div class="stat"><div><span class="mut">Bu gün</span><b>${money(sum(d0))} ₼</b><span class="mut">${cnt(d0)} səfər</span></div><div><span class="mut">Bu həftə</span><b>${money(sum(w0))} ₼</b><span class="mut">${cnt(w0)} səfər</span></div></div>
-  <p class="mut">Göstərilən məbləğ komissiyadan əvvəlki ümumi gəlirdir.</p><h3 style="margin-top:14px">Son səfərlər</h3>`
-    + (S.history.length ? S.history.slice(0, 30).map((r) => `<div class="ride"><div class="row" style="justify-content:space-between"><b>${money(r.finalPrice || r.price)} ₼</b><span class="mut">${r.completedAtMs ? new Date(r.completedAtMs).toLocaleString("az-AZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</span></div><div class="mut">${esc((r.pickup.addr || "").split(",")[0])} → ${esc(((r.dropoff && r.dropoff.addr) || "").split(",")[0])}${r.rating ? " · ⭐ " + r.rating : ""}</div></div>`).join("") : `<div class="card mut" style="text-align:center">Hələ tamamlanmış səfər yoxdur</div>`);
+  <p class="mut">Göstərilən məbləğ komissiyadan sonra sizin xalis qazancınızdır. Hazırkı komissiya: <b>${S.settings.commissionPct || 0}%</b>.</p><h3 style="margin-top:14px">Son səfərlər</h3>`
+    + (S.history.length ? S.history.slice(0, 30).map((r) => `<div class="ride"><div class="row" style="justify-content:space-between"><b>${money(r.driverEarning != null ? r.driverEarning : (r.finalPrice || r.price))} ₼</b><span class="mut">${r.completedAtMs ? new Date(r.completedAtMs).toLocaleString("az-AZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</span></div><div class="mut">${esc((r.pickup.addr || "").split(",")[0])} → ${esc(((r.dropoff && r.dropoff.addr) || "").split(",")[0])}${r.rating ? " · ⭐ " + r.rating : ""}</div></div>`).join("") : `<div class="card mut" style="text-align:center">Hələ tamamlanmış səfər yoxdur</div>`);
 }
 
 /* ---------------- Profil ---------------- */
@@ -432,14 +641,16 @@ function startDemo() {
 
 /* ---------------- Marşrut ---------------- */
 function route() {
-  if (!S.me) return authView();
+  if (!S.me) { hideOverlay(); hideNav(); return authView(); }
   if (!S.prof) return profView(false);
   if (!S.prof.approved) return waitView();
+  if (S.active) { hideOverlay(); return renderNav(); }
+  hideNav(); renderOverlay();
   if (S.tab === "earn") return renderEarn();
   if (S.tab === "me") return renderMe();
   renderHome();
 }
-async function loadSettings() { try { const d = await getDoc(doc(db, "settings", "taxi")); if (d.exists()) { const v = d.data(); if (v.waitFree != null) S.settings.waitFree = +v.waitFree; if (v.waitPerMin != null) S.settings.waitPerMin = +v.waitPerMin; } } catch (e) {} }
+async function loadSettings() { try { const d = await getDoc(doc(db, "settings", "taxi")); if (d.exists()) { const v = d.data(); if (v.waitFree != null) S.settings.waitFree = +v.waitFree; if (v.waitPerMin != null) S.settings.waitPerMin = +v.waitPerMin; if (v.commissionPct != null) S.settings.commissionPct = Math.min(100, Math.max(0, +v.commissionPct || 0)); } } catch (e) {} }
 
 onAuthStateChanged(auth, (u) => {
   if (S.demo && !u) return;

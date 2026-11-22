@@ -10,3 +10,7 @@ Fayllar: `index.html` (bütün tətbiq), `manifest.json`, `sw.js`, `offline.html
 `firestore.taxi.rules`, ikonlar, `store/` ← Play qrafikləri. Quraşdırma və Play addımları: **PLAY_STORE.md**.
 
 Məhdudiyyət (v1): GPS yalnız tətbiq açıq və ekran oyaq olduqda göndərilir (arxa fonda izləmə Google Play-in əlavə təsdiqini tələb edir).
+
+## Komissiya
+Hazırda **0%**. Dəyişmək üçün Firestore → `settings/taxi` sənədinə `commissionPct` (number) sahəsi əlavə edin, məsələn `10`.
+Sifariş pəncərəsində və qazancda xalis məbləğ avtomatik hesablanır; tamamlanan səfərə `commissionPct`, `commission`, `driverEarning` yazılır.
