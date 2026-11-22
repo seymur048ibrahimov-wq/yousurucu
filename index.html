@@ -135,7 +135,7 @@ function fbErr(e) { const c = e && e.code || ""; if (AE[c]) return AE[c]; if (c 
 const S = {
   me: null, prof: null, tab: "home", online: localStorage.getItem("bgsOnline") === "1",
   pos: null, rides: [], hidden: new Set(), active: null, history: [], settings: { waitFree: 3, waitPerMin: 0.2 },
-  lastSent: null, lastSentAt: 0
+  lastSent: null, lastSentAt: 0, demo: false
 };
 let unsubProf = null, unsubRides = null, unsubActive = null, watchId = null, wakeLock = null, beepCtx = null, seenRides = new Set();
 
@@ -160,11 +160,13 @@ function authView() {
     <div class="err" id="aErr"></div>
     <button class="btn" id="aGo" style="margin-top:8px">${upMode ? "Qeydiyyatdan keç" : "Daxil ol"}</button>
     ${NATIVE ? "" : `<button class="btn sec" id="aG" style="margin-top:10px">Google ilə davam et</button>`}
+    <button class="btn sec" id="aSkip" style="margin-top:10px">Keç — demo baxış</button>
     <p style="text-align:center;margin:14px 0 0"><button class="lnk" id="aSw">${upMode ? "Hesabım var — daxil ol" : "Hesabım yoxdur — qeydiyyat"}</button></p>
     ${upMode ? "" : `<p style="text-align:center;margin:8px 0 0"><button class="lnk" id="aRst">Parolu unutdum</button></p>`}
   </div>
   <p class="mut" style="text-align:center"><a class="lnk" href="privacy-policy.html">Gizlilik siyasəti</a></p>`;
   $("aSw").onclick = () => { upMode = !upMode; authView(); };
+  $("aSkip").onclick = () => startDemo();
   const er = (m) => $("aErr").textContent = m;
   if ($("aRst")) $("aRst").onclick = async () => { const e = $("aE").value.trim(); if (!e) return er("E-poçtu yazın"); try { await sendPasswordResetEmail(auth, e); er(""); toast("Parolu bərpa linki göndərildi"); } catch (x) { er(fbErr(x)); } };
   if ($("aG")) $("aG").onclick = async () => { try { const gp = new GoogleAuthProvider(); gp.setCustomParameters({ prompt: "select_account" }); await signInWithPopup(auth, gp); } catch (x) { er(fbErr(x)); } };
@@ -225,6 +227,7 @@ function driverDoc(extra) {
   return { online: S.online, busy: !!S.active, cls: p.cls || "eko", uid: S.me.uid, name: p.name || "", ...(pos.lat != null ? { lat: pos.lat, lng: pos.lng, heading: pos.heading || 0, acc: pos.acc || 0 } : {}), updatedAtMs: Date.now(), ...extra };
 }
 async function pushState(extra) {
+  if (S.demo) return;
   if (!S.me || !S.prof || !S.prof.approved) return;
   try { await setDoc(doc(db, "taxiDrivers", S.me.uid), driverDoc(extra), { merge: true }); S.lastSent = S.pos && { lat: S.pos.lat, lng: S.pos.lng }; S.lastSentAt = Date.now(); } catch (e) { console.warn(e); }
 }
@@ -249,7 +252,7 @@ async function setOnline(on) {
   await pushState(); route();
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && S.online && wakeLock == null && navigator.wakeLock) navigator.wakeLock.request("screen").then((l) => wakeLock = l).catch(() => {}); });
-window.addEventListener("pagehide", () => { if (S.me && S.prof && S.prof.approved && S.online && !S.active) { try { updateDoc(doc(db, "taxiDrivers", S.me.uid), { online: false, updatedAtMs: Date.now() }); } catch (e) {} } });
+window.addEventListener("pagehide", () => { if (!S.demo && S.me && S.prof && S.prof.approved && S.online && !S.active) { try { updateDoc(doc(db, "taxiDrivers", S.me.uid), { online: false, updatedAtMs: Date.now() }); } catch (e) {} } });
 setInterval(() => { if (S.online && S.me && Date.now() - S.lastSentAt > 25000) pushState(); }, 10000);
 
 /* ---------------- Sifarişlər ---------------- */
@@ -257,12 +260,14 @@ function beep() {
   try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); beepCtx = beepCtx || new (window.AudioContext || window.webkitAudioContext)(); const o = beepCtx.createOscillator(), g = beepCtx.createGain(); o.connect(g); g.connect(beepCtx.destination); o.frequency.value = 880; g.gain.value = 0.15; o.start(); setTimeout(() => o.stop(), 350); } catch (e) {}
 }
 function watchRides() {
+  if (S.demo) { if (S.online) S.rides = demoRides().filter((r) => !S.hidden.has(r.id)); return; }
   if (unsubRides || !S.online || S.active) return;
   unsubRides = onSnapshot(query(collection(db, "taxiRides"), where("status", "==", "searching"), limit(40)), (snap) => {
     S.allRides = []; snap.forEach((d) => S.allRides.push({ id: d.id, ...d.data() })); filterRides();
   }, (e) => { toast(fbErr(e), 4000); });
 }
 function filterRides() {
+  if (S.demo) { S.rides = S.online && !S.active ? demoRides().filter((r) => !S.hidden.has(r.id)) : []; if (S.tab === "home" && !S.active) renderHome(); return; }
   if (!S.allRides || !S.prof) return;
   const now = Date.now();
   S.rides = S.allRides.filter((r) => !S.hidden.has(r.id) && r.cls === S.prof.cls && now - (r.createdAtMs || now) < MAX_AGE_MS && r.pickup && (!S.pos || hav(S.pos, r.pickup) <= RADIUS_KM))
@@ -275,6 +280,7 @@ setInterval(() => { if (S.online && !S.active && S.tab === "home") filterRides()
 
 async function accept(id) {
   const p = S.prof;
+  if (S.demo) { const r = S.rides.find((x) => x.id === id); S.active = { ...r, status: "accepted" }; S.rides = []; return route(); }
   try {
     await runTransaction(db, async (tx) => {
       const ref = doc(db, "taxiRides", id), s = await tx.get(ref);
@@ -285,6 +291,7 @@ async function accept(id) {
   } catch (e) { toast(e.code === "taken" ? e.message : fbErr(e), 3500); }
 }
 function watchActive() {
+  if (S.demo) return;
   if (unsubActive) unsubActive();
   unsubActive = onSnapshot(query(collection(db, "taxiRides"), where("driverId", "==", S.me.uid), limit(80)), (snap) => {
     const all = []; snap.forEach((d) => all.push({ id: d.id, ...d.data() }));
@@ -303,6 +310,12 @@ function waitFee(r, endMs) {
 }
 async function setStatus(r, status) {
   const patch = { status };
+  if (S.demo) {
+    if (status === "arrived") S.active = { ...r, status, arrivedAtMs: Date.now() };
+    else if (status === "ongoing") S.active = { ...r, status, startedAtMs: Date.now() };
+    else if (status === "completed") { const wf = waitFee(r, Date.now()); S.history.unshift({ ...r, status, completedAtMs: Date.now(), finalPrice: Math.round(((+r.price || 0) + wf) * 10) / 10 }); S.active = null; toast("Səfər tamamlandı ✅ (demo)", 3000); filterRides(); }
+    return route();
+  }
   if (status === "arrived") patch.arrivedAtMs = Date.now();
   if (status === "ongoing") patch.startedAtMs = Date.now();
   if (status === "completed") { const now = Date.now(), wf = waitFee(r, now); patch.completedAtMs = now; patch.waitFee = wf; patch.finalPrice = Math.round(((+r.price || 0) + wf) * 10) / 10; }
@@ -317,6 +330,7 @@ function cancelActive(r) {
   m.querySelector("#mX").onclick = () => m.remove();
   m.querySelectorAll("[data-i]").forEach((b) => b.onclick = async () => {
     m.remove();
+    if (S.demo) { S.active = null; filterRides(); toast("Sifariş ləğv edildi (demo)"); return route(); }
     try { await updateDoc(doc(db, "taxiRides", r.id), { status: "cancelled", cancelledBy: "driver", cancelReason: reasons[+b.dataset.i], cancelledAtMs: Date.now() }); toast("Sifariş ləğv edildi"); } catch (e) { toast(fbErr(e)); }
   });
 }
@@ -383,7 +397,8 @@ function renderMe() {
   <button class="btn red" id="mOut" style="margin-top:10px">Çıxış</button>
   <button class="btn sec" id="mDel" style="margin-top:10px;color:#ff7b8c">Hesabı və məlumatlarımı sil</button>`;
   $("mEd").onclick = () => profView(true);
-  $("mOut").onclick = async () => { if (S.active) return toast("Aktiv sifariş var"); await setOnline(false); signOut(auth); };
+  if (S.demo) $("mDel").classList.add("hidden");
+  $("mOut").onclick = async () => { if (S.active) return toast("Aktiv sifariş var"); await setOnline(false); if (S.demo) { S.demo = false; S.me = null; S.prof = null; return route(); } signOut(auth); };
   $("mDel").onclick = async () => {
     if (S.active) return toast("Aktiv sifariş var");
     if (!confirm("Hesabınız və bütün sürücü məlumatlarınız həmişəlik silinəcək. Davam edilsin?")) return;
@@ -400,6 +415,21 @@ function renderMe() {
   };
 }
 
+/* ---------------- Demo baxış (giriş olmadan, heç nə Firebase-ə yazılmır) ---------------- */
+function demoRides() {
+  const b = { lat: 40.4093, lng: 49.8671 }, now = Date.now();
+  return [
+    { id: "d1", uid: "x", name: "Nigar", phone: "+994500000001", cls: "eko", pay: "cash", price: 4.4, km: 5.2, status: "searching", createdAtMs: now, pickup: { ...b, addr: "28 Mall, Bakı" }, dropoff: { lat: 40.37, lng: 49.85, addr: "Nərimanov metrosu, Bakı" }, tariff: { waitFree: 3, waitPerMin: 0.2 } },
+    { id: "d2", uid: "x", name: "Rauf", phone: "+994500000002", cls: "eko", pay: "card", price: 7.9, km: 9.1, status: "searching", createdAtMs: now, pickup: { lat: 40.4145, lng: 49.8712, addr: "Fəvvarələr meydanı, Bakı" }, dropoff: { lat: 40.4677, lng: 50.0467, addr: "Heydər Əliyev hava limanı" }, prefsText: "Sakit səfər", tariff: { waitFree: 3, waitPerMin: 0.2 } }
+  ].map((r) => ({ ...r, _d: r.id === "d1" ? 0.4 : 1.1 }));
+}
+function startDemo() {
+  S.demo = true; S.me = { uid: "demo", email: "demo@goroute.az" };
+  S.prof = { name: "Demo Sürücü", phone: "+994500000000", car: "Toyota Camry", color: "Ağ", plate: "10-DE-001", cls: "eko", approved: true, rating: 4.9 };
+  S.online = false; S.active = null; S.rides = []; S.history = []; S.tab = "home";
+  toast("Demo rejimi: heç nə yadda saxlanmır", 3500); route();
+}
+
 /* ---------------- Marşrut ---------------- */
 function route() {
   if (!S.me) return authView();
@@ -412,7 +442,8 @@ function route() {
 async function loadSettings() { try { const d = await getDoc(doc(db, "settings", "taxi")); if (d.exists()) { const v = d.data(); if (v.waitFree != null) S.settings.waitFree = +v.waitFree; if (v.waitPerMin != null) S.settings.waitPerMin = +v.waitPerMin; } } catch (e) {} }
 
 onAuthStateChanged(auth, (u) => {
-  S.me = u;
+  if (S.demo && !u) return;
+  S.demo = false; S.me = u;
   if (unsubProf) { unsubProf(); unsubProf = null; } if (unsubActive) { unsubActive(); unsubActive = null; } if (unsubRides) { unsubRides(); unsubRides = null; }
   if (!u) { S.prof = null; S.active = null; stopGeo(); return authView(); }
   show("load"); loadSettings();
