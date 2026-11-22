@@ -483,7 +483,7 @@ function renderNav() {
   }
   const key = r.id + ":" + (r.status === "ongoing" ? "o" : r.status === "arrived" ? "w" : "a");
   if (!S.nav || S.nav.key !== key) { S.nav = { key, route: null, i: 0, follow: true, lastRoute: 0, busy: false, err: null }; drawNav(); }
-  paintSheet(r); paintTop();
+  paintSheet(r); paintTop(); movePax();
   if (r.status !== "arrived" && !S.nav.route && !S.nav.busy) planRoute();
 }
 async function planRoute() {
@@ -506,7 +506,15 @@ function drawNav() {
     navLines.push(new google.maps.Polyline({ path: N.route.path, strokeColor: "#12A9CC", strokeOpacity: 1, strokeWeight: 6, map: g, zIndex: 2 }));
     if (!S.pos) { const b = new google.maps.LatLngBounds(); N.route.path.forEach((q) => b.extend(q)); g.fitBounds(b, 60); }
   }
-  moveCar();
+  moveCar(); movePax();
+}
+const paxPos = (r) => (r && ["accepted", "arrived"].includes(r.status) && typeof r.custLat === "number" && Date.now() - (r.custAtMs || 0) < 120000) ? { lat: r.custLat, lng: r.custLng } : null;
+function movePax() {
+  const g = S.gm, r = S.active; if (!g || !r) return;
+  const pp = paxPos(r);
+  if (!pp) { if (navMk.pax) { navMk.pax.setMap(null); navMk.pax = null; } return; }
+  const icon = { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: "#FF5FA2", fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 3 };
+  if (!navMk.pax) navMk.pax = new google.maps.Marker({ position: pp, map: g, icon, zIndex: 8, title: "Sərnişin" }); else navMk.pax.setPosition(pp);
 }
 function moveCar() {
   const g = S.gm; if (!g || !S.pos) return;
@@ -517,7 +525,7 @@ function moveCar() {
 function distToPath(path, p) { let m = Infinity; for (let k = 0; k < path.length; k += 1) { const d = hav(p, path[k]) * 1000; if (d < m) m = d; } return m; }
 function navTick() {
   const N = S.nav, r = S.active; if (!N || !r || !S.pos) return;
-  moveCar();
+  moveCar(); movePax();
   if (r.status === "arrived") return;
   if (!N.route) { if (!N.busy && Date.now() - N.lastRoute > 6000) planRoute(); return; }
   const st = N.route.steps;
@@ -545,6 +553,7 @@ function paintSheet(r) {
   const el = $("navSheet"); if (!el) return; const st = r.status, wf = waitFee(r), tot = money((+r.price || 0) + wf), cm = commOf((+r.price || 0) + wf), net = money((+r.price || 0) + wf - cm);
   const title = { accepted: "Sərnişinə doğru gedin", arrived: "Sərnişini gözləyirsiniz", ongoing: "Səfər davam edir" }[st], tgt = targetOf(r);
   el.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:6px"><div><b style="font-size:18px">${title}</b><div class="mut">${esc(r.name || "Sərnişin")} · ${esc(r.km)} km · ${r.pay === "cash" ? "💵 Nağd" : "💳 Kart"}</div></div><div style="text-align:right;flex:none"><div style="font-size:24px;font-weight:800;color:var(--em)">${tot} ₼</div><div class="mut">${cm > 0 ? "Xalis " + net + " ₼" : "Komissiya 0%"}${wf ? " · gözləmə +" + money(wf) : ""}</div></div></div>
+  ${(() => { const pp = paxPos(r); return pp && S.pos ? `<div class="chip" style="background:rgba(255,95,162,.15);color:var(--pink);margin-bottom:6px">👤 Sərnişin sizdən ${fmtKm(hav(S.pos, pp) * 1000)} məsafədədir</div>` : ""; })()}
   <div class="mut" style="margin:4px 0 10px">${st === "ongoing" ? "🏁" : "📍"} ${esc(tgt.addr || "")}${(r.stops || []).length && st === "ongoing" ? ` · +${r.stops.length} dayanacaq` : ""}${r.note ? `<br>“${esc(r.note)}”` : ""}</div>
   <div class="row"><a class="btn sec" href="tel:${esc(r.phone || "")}" style="padding:11px">📞 Zəng</a><a class="btn sec" href="sms:${esc(r.phone || "")}" style="padding:11px">💬 SMS</a><a class="btn sec" target="_blank" rel="noopener" href="${navUrl(tgt)}" style="padding:11px">🧭 Google</a><a class="btn sec" target="_blank" rel="noopener" href="${wazeUrl(tgt)}" style="padding:11px">Waze</a></div>
   ${st === "accepted" ? `<button class="btn" id="aArr" style="margin-top:10px;background:var(--sea);padding:18px">📍 Çatdım</button>` : ""}
@@ -628,7 +637,7 @@ function renderMe() {
 function demoRides() {
   const b = { lat: 40.4093, lng: 49.8671 }, now = Date.now();
   return [
-    { id: "d1", uid: "x", name: "Nigar", phone: "+994500000001", cls: "eko", pay: "cash", price: 4.4, km: 5.2, status: "searching", createdAtMs: now, pickup: { ...b, addr: "28 Mall, Bakı" }, dropoff: { lat: 40.37, lng: 49.85, addr: "Nərimanov metrosu, Bakı" }, tariff: { waitFree: 3, waitPerMin: 0.2 } },
+    { id: "d1", uid: "x", name: "Nigar", phone: "+994500000001", cls: "eko", pay: "cash", price: 4.4, km: 5.2, status: "searching", createdAtMs: now, custLat: 40.4098, custLng: 49.8676, custAtMs: now + 3600000, pickup: { ...b, addr: "28 Mall, Bakı" }, dropoff: { lat: 40.37, lng: 49.85, addr: "Nərimanov metrosu, Bakı" }, tariff: { waitFree: 3, waitPerMin: 0.2 } },
     { id: "d2", uid: "x", name: "Rauf", phone: "+994500000002", cls: "eko", pay: "card", price: 7.9, km: 9.1, status: "searching", createdAtMs: now, pickup: { lat: 40.4145, lng: 49.8712, addr: "Fəvvarələr meydanı, Bakı" }, dropoff: { lat: 40.4677, lng: 50.0467, addr: "Heydər Əliyev hava limanı" }, prefsText: "Sakit səfər", tariff: { waitFree: 3, waitPerMin: 0.2 } }
   ].map((r) => ({ ...r, _d: r.id === "d1" ? 0.4 : 1.1 }));
 }
