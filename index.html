@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Go Route Sürücü</title>
+<meta name="description" content="Go Route Sürücü — Go Route Taksi sürücüləri üçün sifariş qəbulu və qazanc tətbiqi.">
+<meta name="theme-color" content="#05100F">
+<meta name="color-scheme" content="dark">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script type="importmap">
+{ "imports": {
+  "firebase/app": "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js",
+  "firebase/auth": "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js",
+  "firebase/firestore": "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js"
+} }
+</script>
+<style>
+:root{
+  --bg:#04100F; --bg2:#071918; --ink:#EAF6F3; --mut:#8FA9A5; --mut2:#5F7A76;
+  --em:#10C98F; --em2:#0A9C6E; --sea:#12A9CC; --pink:#FF5FA2; --red:#E5334B; --gold:#F3C969;
+  --card:linear-gradient(160deg,rgba(22,44,44,.86),rgba(7,22,22,.92));
+  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+  --grad:linear-gradient(135deg,#10C98F 0%,#12A9CC 100%);
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;overscroll-behavior:none}
+button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none}
+input,select,textarea{font-family:inherit;color:var(--ink);font-size:16px}
+.hidden{display:none!important}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;padding-top:var(--safe-t)}
+.scr{flex:1;overflow-y:auto;padding:16px 16px calc(90px + var(--safe-b));-webkit-overflow-scrolling:touch}
+.top{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 0}
+.logo{font-weight:800;font-size:20px;letter-spacing:-.02em}
+.logo b{color:var(--em)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:12px}
+h2{margin:0 0 10px;font-size:20px}
+h3{margin:0 0 6px;font-size:16px}
+.mut{color:var(--mut);font-size:13px}
+.btn{display:block;width:100%;padding:15px;border-radius:16px;background:var(--grad);color:#032018;font-weight:800;font-size:16px;text-align:center}
+.btn.sec{background:rgba(255,255,255,.07);color:var(--ink);border:1px solid var(--line2)}
+.btn.red{background:linear-gradient(135deg,#E5334B,#9c1f33);color:#fff}
+.btn:disabled{opacity:.5}
+.row{display:flex;gap:10px;align-items:center}
+.row>*{flex:1}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input,select{width:100%;padding:13px 14px;border-radius:14px;border:1px solid var(--line2);background:rgba(255,255,255,.05);outline:none}
+input:focus,select:focus{border-color:var(--em)}
+select option{color:#000}
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:rgba(4,16,15,.96);border-top:1px solid var(--line);padding-bottom:var(--safe-b);z-index:5}
+.tabs button{flex:1;padding:12px 4px;font-size:12px;color:var(--mut)}
+.tabs button.on{color:var(--em)}
+.tabs button span{display:block;font-size:20px}
+.sw{display:flex;align-items:center;justify-content:space-between;padding:16px;border-radius:20px;border:1px solid var(--line2);background:var(--card);margin-bottom:12px}
+.sw.on{border-color:var(--em);box-shadow:0 0 0 1px var(--em) inset}
+.tog{width:58px;height:32px;border-radius:20px;background:#2a3d3b;position:relative;transition:.2s}
+.tog::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on .tog{background:var(--em)}
+.sw.on .tog::after{left:29px}
+.ride{border:1px solid var(--line2);border-radius:18px;padding:14px;margin-bottom:12px;background:rgba(255,255,255,.04)}
+.ride .p{font-size:22px;font-weight:800;color:var(--em)}
+.ride .a{font-size:14px;margin:4px 0}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:12px;background:rgba(16,201,143,.15);color:var(--em)}
+.badge.w{background:rgba(243,201,105,.15);color:var(--gold)}
+.badge.r{background:rgba(229,51,75,.15);color:#ff7b8c}
+.stat{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat div{background:rgba(255,255,255,.05);border-radius:16px;padding:14px}
+.stat b{display:block;font-size:22px;margin-top:4px}
+#toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translate(-50%,20px);background:#10211f;border:1px solid var(--line2);padding:11px 16px;border-radius:14px;opacity:0;pointer-events:none;transition:.25s;z-index:20;max-width:90%;text-align:center;font-size:14px}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+.err{color:#ff7b8c;font-size:13px;min-height:18px;margin-top:8px}
+.lnk{color:var(--em);text-decoration:underline;font-size:14px}
+.big{font-size:42px;text-align:center;margin:12px 0}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;z-index:30}
+.modal>div{width:100%;background:#0a1c1a;border-radius:24px 24px 0 0;padding:20px 16px calc(20px + var(--safe-b));max-height:85%;overflow:auto}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top"><div class="logo">Go Route <b>Sürücü</b></div><div id="topSt" class="mut"></div></div>
+  <div id="v-load" class="scr"><div class="big">🚕</div><p class="mut" style="text-align:center">Yüklənir…</p></div>
+  <div id="v-auth" class="scr hidden"></div>
+  <div id="v-prof" class="scr hidden"></div>
+  <div id="v-wait" class="scr hidden"></div>
+  <div id="v-home" class="scr hidden"></div>
+  <div id="v-earn" class="scr hidden"></div>
+  <div id="v-me" class="scr hidden"></div>
+  <nav class="tabs hidden" id="tabs">
+    <button data-t="home" class="on"><span>🚕</span>Sifarişlər</button>
+    <button data-t="earn"><span>💰</span>Qazanc</button>
+    <button data-t="me"><span>👤</span>Profil</button>
+  </nav>
+</div>
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "firebase/app";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, deleteUser } from "firebase/auth";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot, query, where, limit, runTransaction, deleteDoc } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBQIDfObXpxNa1hVAYDmigSi9u49y_BJQc",
+  authDomain: "bkaugo.firebaseapp.com",
+  projectId: "bkaugo",
+  storageBucket: "bkaugo.firebasestorage.app",
+  messagingSenderId: "568740538737",
+  appId: "1:568740538737:web:9b2ab40d0b728789a1aed0",
+  measurementId: "G-44T95W0PSX"
+};
+const fbApp = initializeApp(firebaseConfig, "bakugo-surucu");
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const CLASSES = [["eko", "Ekonom"], ["komfort", "Komfort"], ["biznes", "Biznes"], ["xl", "Minivan"], ["yuk", "Yük daşıma"], ["pet", "Ev heyvanı"]];
+const RADIUS_KM = 8, MAX_AGE_MS = 5 * 60 * 1000;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+const money = (n) => (Math.round((+n || 0) * 100) / 100).toFixed(2);
+function toast(t, ms) { const x = $("toast"); x.textContent = t; x.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => x.classList.remove("on"), ms || 2800); }
+function hav(a, b) { const R = 6371, r = (d) => d * Math.PI / 180; const dLa = r(b.lat - a.lat), dLo = r(b.lng - a.lng); const x = Math.sin(dLa / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); }
+function bearing(a, b) { const r = (d) => d * Math.PI / 180, y = Math.sin(r(b.lng - a.lng)) * Math.cos(r(b.lat)), x = Math.cos(r(a.lat)) * Math.sin(r(b.lat)) - Math.sin(r(a.lat)) * Math.cos(r(b.lat)) * Math.cos(r(b.lng - a.lng)); return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360; }
+const AE = {
+  "auth/invalid-credential": "E-poçt və ya parol yanlışdır", "auth/wrong-password": "Parol yanlışdır", "auth/user-not-found": "Bu e-poçtla hesab yoxdur",
+  "auth/email-already-in-use": "Bu e-poçt artıq qeydiyyatdadır", "auth/weak-password": "Parol ən azı 6 simvol olmalıdır", "auth/invalid-email": "E-poçt düzgün deyil",
+  "auth/network-request-failed": "İnternet bağlantısı yoxdur", "auth/too-many-requests": "Çox cəhd edildi, bir az sonra yenidən yoxlayın"
+};
+function fbErr(e) { const c = e && e.code || ""; if (AE[c]) return AE[c]; if (c === "permission-denied") return "İcazə yoxdur (hesabınız təsdiqlənməyib və ya sifariş artıq götürülüb)"; if (c === "unavailable") return "İnternet bağlantısı yoxdur"; return (e && e.message) || "Xəta baş verdi"; }
+
+/* ---------------- Vəziyyət ---------------- */
+const S = {
+  me: null, prof: null, tab: "home", online: localStorage.getItem("bgsOnline") === "1",
+  pos: null, rides: [], hidden: new Set(), active: null, history: [], settings: { waitFree: 3, waitPerMin: 0.2 },
+  lastSent: null, lastSentAt: 0
+};
+let unsubProf = null, unsubRides = null, unsubActive = null, watchId = null, wakeLock = null, beepCtx = null, seenRides = new Set();
+
+function show(id) {
+  for (const v of ["load", "auth", "prof", "wait", "home", "earn", "me"]) $("v-" + v).classList.toggle("hidden", v !== id);
+  const main = ["home", "earn", "me"].includes(id);
+  $("tabs").classList.toggle("hidden", !main);
+  if (main) document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === id));
+  $("topSt").textContent = S.online && main ? "🟢 Xəttdə" : "";
+}
+document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => { S.tab = b.dataset.t; route(); });
+
+/* ---------------- Giriş ---------------- */
+let upMode = false;
+function authView() {
+  show("auth");
+  $("v-auth").innerHTML = `<div class="big">🚕</div><h2 style="text-align:center">${upMode ? "Sürücü qeydiyyatı" : "Sürücü girişi"}</h2>
+  <p class="mut" style="text-align:center">Go Route Taksi sürücüləri üçün</p>
+  <div class="card">
+    <label>E-poçt</label><input id="aE" type="email" autocomplete="email" inputmode="email">
+    <label>Parol</label><input id="aP" type="password" autocomplete="${upMode ? "new-password" : "current-password"}">
+    <div class="err" id="aErr"></div>
+    <button class="btn" id="aGo" style="margin-top:8px">${upMode ? "Qeydiyyatdan keç" : "Daxil ol"}</button>
+    ${NATIVE ? "" : `<button class="btn sec" id="aG" style="margin-top:10px">Google ilə davam et</button>`}
+    <p style="text-align:center;margin:14px 0 0"><button class="lnk" id="aSw">${upMode ? "Hesabım var — daxil ol" : "Hesabım yoxdur — qeydiyyat"}</button></p>
+    ${upMode ? "" : `<p style="text-align:center;margin:8px 0 0"><button class="lnk" id="aRst">Parolu unutdum</button></p>`}
+  </div>
+  <p class="mut" style="text-align:center"><a class="lnk" href="privacy-policy.html">Gizlilik siyasəti</a></p>`;
+  $("aSw").onclick = () => { upMode = !upMode; authView(); };
+  const er = (m) => $("aErr").textContent = m;
+  if ($("aRst")) $("aRst").onclick = async () => { const e = $("aE").value.trim(); if (!e) return er("E-poçtu yazın"); try { await sendPasswordResetEmail(auth, e); er(""); toast("Parolu bərpa linki göndərildi"); } catch (x) { er(fbErr(x)); } };
+  if ($("aG")) $("aG").onclick = async () => { try { const gp = new GoogleAuthProvider(); gp.setCustomParameters({ prompt: "select_account" }); await signInWithPopup(auth, gp); } catch (x) { er(fbErr(x)); } };
+  $("aGo").onclick = async () => {
+    const e = $("aE").value.trim(), p = $("aP").value; er("");
+    if (!e || !p) return er("E-poçt və parolu yazın");
+    $("aGo").disabled = true;
+    try { if (upMode) await createUserWithEmailAndPassword(auth, e, p); else await signInWithEmailAndPassword(auth, e, p); }
+    catch (x) { er(fbErr(x)); $("aGo").disabled = false; }
+  };
+}
+
+/* ---------------- Profil (ilk qeydiyyat) ---------------- */
+function profView(edit) {
+  show("prof"); const p = S.prof || {};
+  $("v-prof").innerHTML = `<h2>${edit ? "Profili yenilə" : "Sürücü məlumatları"}</h2>
+  <p class="mut">${edit ? "" : "Məlumatlarınız yoxlanıldıqdan sonra sifariş qəbul edə biləcəksiniz."}</p>
+  <div class="card">
+    <label>Ad, soyad</label><input id="pN" value="${esc(p.name || (S.me && S.me.displayName) || "")}" autocomplete="name">
+    <label>Telefon (sərnişin zəng edəcək)</label><input id="pT" type="tel" inputmode="tel" placeholder="+994 50 000 00 00" value="${esc(p.phone || "")}">
+    <label>Avtomobil (marka, model)</label><input id="pC" placeholder="Toyota Camry" value="${esc(p.car || "")}">
+    <div class="row"><div><label>Rəng</label><input id="pR" placeholder="Ağ" value="${esc(p.color || "")}"></div>
+    <div><label>Nömrə nişanı</label><input id="pP" placeholder="10-AB-123" value="${esc(p.plate || "")}"></div></div>
+    <label>Xidmət sinfi</label><select id="pK">${CLASSES.map((c) => `<option value="${c[0]}" ${p.cls === c[0] ? "selected" : ""}>${c[1]}</option>`).join("")}</select>
+    <div class="err" id="pErr"></div>
+    <button class="btn" id="pGo" style="margin-top:8px">${edit ? "Yadda saxla" : "Təsdiq üçün göndər"}</button>
+    ${edit ? `<button class="btn sec" id="pBack" style="margin-top:10px">Geri</button>` : ""}
+  </div>`;
+  if ($("pBack")) $("pBack").onclick = () => { S.tab = "me"; route(); };
+  $("pGo").onclick = async () => {
+    const v = { name: $("pN").value.trim(), phone: $("pT").value.trim(), car: $("pC").value.trim(), color: $("pR").value.trim(), plate: $("pP").value.trim().toUpperCase(), cls: $("pK").value };
+    const er = (m) => $("pErr").textContent = m;
+    if (v.name.length < 3) return er("Adınızı yazın");
+    if (v.phone.replace(/\D/g, "").length < 9) return er("Telefon nömrəsi düzgün deyil");
+    if (!v.car || !v.color || v.plate.length < 4) return er("Avtomobil, rəng və nömrə nişanını yazın");
+    $("pGo").disabled = true;
+    try {
+      const ref = doc(db, "taxiDriverProfiles", S.me.uid);
+      if (edit && S.prof) await updateDoc(ref, v);
+      else await setDoc(ref, { ...v, uid: S.me.uid, email: S.me.email || "", approved: false, rating: 5, trips: 0, createdAtMs: Date.now() });
+      toast(edit ? "Yadda saxlandı" : "Göndərildi");
+    } catch (x) { er(fbErr(x)); $("pGo").disabled = false; }
+  };
+}
+function waitView() {
+  show("wait"); const p = S.prof;
+  $("v-wait").innerHTML = `<div class="big">⏳</div><h2 style="text-align:center">Müraciətiniz yoxlanılır</h2>
+  <p class="mut" style="text-align:center">${esc(p.name)} · ${esc(p.car)} · ${esc(p.plate)}<br>Təsdiqdən sonra sifariş qəbul edə biləcəksiniz. Bu səhifə avtomatik yenilənəcək.</p>
+  <a class="btn sec" style="margin-top:16px" href="https://wa.me/994702484852">WhatsApp ilə əlaqə</a>
+  <button class="btn sec" id="wEdit" style="margin-top:10px">Məlumatları dəyiş</button>
+  <button class="btn sec" id="wOut" style="margin-top:10px">Çıxış</button>`;
+  $("wEdit").onclick = () => profView(true); $("wOut").onclick = () => signOut(auth);
+}
+
+/* ---------------- Yer və onlayn rejim ---------------- */
+function driverDoc(extra) {
+  const p = S.prof || {}, pos = S.pos || {};
+  return { online: S.online, busy: !!S.active, cls: p.cls || "eko", uid: S.me.uid, name: p.name || "", ...(pos.lat != null ? { lat: pos.lat, lng: pos.lng, heading: pos.heading || 0, acc: pos.acc || 0 } : {}), updatedAtMs: Date.now(), ...extra };
+}
+async function pushState(extra) {
+  if (!S.me || !S.prof || !S.prof.approved) return;
+  try { await setDoc(doc(db, "taxiDrivers", S.me.uid), driverDoc(extra), { merge: true }); S.lastSent = S.pos && { lat: S.pos.lat, lng: S.pos.lng }; S.lastSentAt = Date.now(); } catch (e) { console.warn(e); }
+}
+function onPos(g) {
+  const c = g.coords, prev = S.pos; let h = c.heading;
+  if ((h == null || isNaN(h)) && prev) { if (hav(prev, { lat: c.latitude, lng: c.longitude }) > 0.01) h = bearing(prev, { lat: c.latitude, lng: c.longitude }); else h = prev.heading || 0; }
+  S.pos = { lat: c.latitude, lng: c.longitude, acc: Math.round(c.accuracy || 0), heading: Math.round(h || 0) };
+  const moved = S.lastSent ? hav(S.lastSent, S.pos) * 1000 : 999;
+  if (S.online && (!S.lastSent || (Date.now() - S.lastSentAt > 5000 && (moved > 12 || Date.now() - S.lastSentAt > 20000)))) pushState();
+  filterRides();
+}
+function startGeo() {
+  if (watchId != null || !navigator.geolocation) { if (!navigator.geolocation) toast("Bu cihazda yer xidməti yoxdur"); return; }
+  watchId = navigator.geolocation.watchPosition(onPos, (e) => { toast(e.code === 1 ? "Yer icazəsi verilməyib — tənzimləmələrdən icazə verin" : "Yer müəyyən edilə bilmir", 4000); }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+  try { if (navigator.wakeLock) navigator.wakeLock.request("screen").then((l) => wakeLock = l).catch(() => {}); } catch (e) {}
+}
+function stopGeo() { if (watchId != null) navigator.geolocation.clearWatch(watchId); watchId = null; try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; }
+async function setOnline(on) {
+  if (on && S.active == null && !(S.prof && S.prof.approved)) return toast("Hesabınız hələ təsdiqlənməyib");
+  S.online = on; localStorage.setItem("bgsOnline", on ? "1" : "0");
+  if (on) { startGeo(); watchRides(); } else { if (!S.active) stopGeo(); S.rides = []; if (unsubRides) { unsubRides(); unsubRides = null; } }
+  await pushState(); route();
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && S.online && wakeLock == null && navigator.wakeLock) navigator.wakeLock.request("screen").then((l) => wakeLock = l).catch(() => {}); });
+window.addEventListener("pagehide", () => { if (S.me && S.prof && S.prof.approved && S.online && !S.active) { try { updateDoc(doc(db, "taxiDrivers", S.me.uid), { online: false, updatedAtMs: Date.now() }); } catch (e) {} } });
+setInterval(() => { if (S.online && S.me && Date.now() - S.lastSentAt > 25000) pushState(); }, 10000);
+
+/* ---------------- Sifarişlər ---------------- */
+function beep() {
+  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); beepCtx = beepCtx || new (window.AudioContext || window.webkitAudioContext)(); const o = beepCtx.createOscillator(), g = beepCtx.createGain(); o.connect(g); g.connect(beepCtx.destination); o.frequency.value = 880; g.gain.value = 0.15; o.start(); setTimeout(() => o.stop(), 350); } catch (e) {}
+}
+function watchRides() {
+  if (unsubRides || !S.online || S.active) return;
+  unsubRides = onSnapshot(query(collection(db, "taxiRides"), where("status", "==", "searching"), limit(40)), (snap) => {
+    S.allRides = []; snap.forEach((d) => S.allRides.push({ id: d.id, ...d.data() })); filterRides();
+  }, (e) => { toast(fbErr(e), 4000); });
+}
+function filterRides() {
+  if (!S.allRides || !S.prof) return;
+  const now = Date.now();
+  S.rides = S.allRides.filter((r) => !S.hidden.has(r.id) && r.cls === S.prof.cls && now - (r.createdAtMs || now) < MAX_AGE_MS && r.pickup && (!S.pos || hav(S.pos, r.pickup) <= RADIUS_KM))
+    .map((r) => ({ ...r, _d: S.pos ? hav(S.pos, r.pickup) : null })).sort((a, b) => (a._d == null ? 0 : a._d) - (b._d == null ? 0 : b._d));
+  let fresh = false; for (const r of S.rides) if (!seenRides.has(r.id)) { seenRides.add(r.id); fresh = true; }
+  if (fresh) beep();
+  if (S.tab === "home" && !S.active) renderHome();
+}
+setInterval(() => { if (S.online && !S.active && S.tab === "home") filterRides(); }, 15000);
+
+async function accept(id) {
+  const p = S.prof;
+  try {
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, "taxiRides", id), s = await tx.get(ref);
+      if (!s.exists() || s.data().status !== "searching") throw Object.assign(new Error("Sifariş artıq götürülüb"), { code: "taken" });
+      tx.update(ref, { status: "accepted", driverId: S.me.uid, acceptedAtMs: Date.now(), driver: { name: p.name, phone: p.phone, car: p.car, color: p.color, plate: p.plate, rating: p.rating || 5, photo: p.photo || "" } });
+    });
+    toast("Sifariş qəbul edildi 🚕"); if (unsubRides) { unsubRides(); unsubRides = null; }
+  } catch (e) { toast(e.code === "taken" ? e.message : fbErr(e), 3500); }
+}
+function watchActive() {
+  if (unsubActive) unsubActive();
+  unsubActive = onSnapshot(query(collection(db, "taxiRides"), where("driverId", "==", S.me.uid), limit(80)), (snap) => {
+    const all = []; snap.forEach((d) => all.push({ id: d.id, ...d.data() }));
+    S.history = all.filter((r) => r.status === "completed").sort((a, b) => (b.completedAtMs || 0) - (a.completedAtMs || 0));
+    const prevActive = S.active;
+    S.active = all.find((r) => ["accepted", "arrived", "ongoing"].includes(r.status)) || null;
+    if (prevActive && !S.active) { const last = all.find((r) => r.id === prevActive.id); if (last && last.status === "cancelled" && last.cancelledBy !== "driver") toast("Sərnişin sifarişi ləğv etdi", 4000); }
+    if ((!!prevActive) !== (!!S.active)) { pushState(); if (!S.active && S.online) watchRides(); }
+    route();
+  }, (e) => toast(fbErr(e)));
+}
+function waitFee(r, endMs) {
+  if (!r || !r.arrivedAtMs) return 0; const t = r.tariff || {}, free = t.waitFree != null ? t.waitFree : S.settings.waitFree, per = t.waitPerMin != null ? t.waitPerMin : S.settings.waitPerMin;
+  const over = Math.ceil(Math.max(0, ((r.startedAtMs || endMs || Date.now()) - r.arrivedAtMs) / 60000 - free));
+  return Math.round(over * per * 10) / 10;
+}
+async function setStatus(r, status) {
+  const patch = { status };
+  if (status === "arrived") patch.arrivedAtMs = Date.now();
+  if (status === "ongoing") patch.startedAtMs = Date.now();
+  if (status === "completed") { const now = Date.now(), wf = waitFee(r, now); patch.completedAtMs = now; patch.waitFee = wf; patch.finalPrice = Math.round(((+r.price || 0) + wf) * 10) / 10; }
+  try { await updateDoc(doc(db, "taxiRides", r.id), patch); if (status === "completed") toast("Səfər tamamlandı ✅ " + money(patch.finalPrice) + " ₼", 4000); }
+  catch (e) { toast(fbErr(e), 4000); }
+}
+function cancelActive(r) {
+  const reasons = ["Sərnişin cavab vermir", "Sərnişin gəlmədi", "Avtomobil nasazlığı", "Digər səbəb"];
+  const m = document.createElement("div"); m.className = "modal";
+  m.innerHTML = `<div><h3>Ləğv etmə səbəbi</h3>${reasons.map((x, i) => `<button class="btn sec" data-i="${i}" style="margin-top:8px">${x}</button>`).join("")}<button class="btn sec" id="mX" style="margin-top:14px">Bağla</button></div>`;
+  document.body.appendChild(m);
+  m.querySelector("#mX").onclick = () => m.remove();
+  m.querySelectorAll("[data-i]").forEach((b) => b.onclick = async () => {
+    m.remove();
+    try { await updateDoc(doc(db, "taxiRides", r.id), { status: "cancelled", cancelledBy: "driver", cancelReason: reasons[+b.dataset.i], cancelledAtMs: Date.now() }); toast("Sifariş ləğv edildi"); } catch (e) { toast(fbErr(e)); }
+  });
+}
+const navUrl = (p) => `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving`;
+
+/* ---------------- Ana səhifə ---------------- */
+function renderHome() {
+  show("home"); const el = $("v-home");
+  if (S.active) return renderActive(el);
+  el.innerHTML = `<div class="sw ${S.online ? "on" : ""}" id="swOn"><div><h3 style="margin:0">${S.online ? "Xəttdəsiniz" : "Xəttdən kənardasınız"}</h3><div class="mut">${S.online ? "Yaxınlıqdakı sifarişlər göstərilir" : "Sifariş almaq üçün xəttə çıxın"}</div></div><div class="tog"></div></div>`
+    + (S.online ? (S.pos ? "" : `<div class="card mut">📡 Yeriniz müəyyən edilir…</div>`) : "")
+    + (S.online ? (S.rides.length ? S.rides.map(rideCard).join("") : `<div class="card" style="text-align:center"><div class="big">🔍</div><div class="mut">Hazırda yaxınlıqda sifariş yoxdur.<br>Yeni sifariş gələndə səs çalacaq.</div></div>`) : `<div class="card" style="text-align:center"><div class="big">😴</div><div class="mut">Xəttə çıxmaq üçün yuxarıdakı düyməni basın.<br>Ekran açıq qalacaq və yeriniz sərnişinlərə göstəriləcək.</div></div>`);
+  $("swOn").onclick = () => setOnline(!S.online);
+  el.querySelectorAll("[data-acc]").forEach((b) => b.onclick = () => { b.disabled = true; accept(b.dataset.acc); });
+  el.querySelectorAll("[data-skip]").forEach((b) => b.onclick = () => { S.hidden.add(b.dataset.skip); filterRides(); });
+}
+function rideCard(r) {
+  return `<div class="ride"><div class="row" style="justify-content:space-between"><div class="p">${money(r.price)} ₼</div><div style="text-align:right"><span class="badge">${r._d != null ? r._d.toFixed(1) + " km uzaqda" : "—"}</span> <span class="badge w">${esc(r.km)} km</span></div></div>
+  <div class="a">📍 ${esc((r.pickup.addr || "").split(",")[0])}</div><div class="a">🏁 ${esc(((r.dropoff && r.dropoff.addr) || "").split(",")[0])}</div>
+  <div class="mut">${r.pay === "cash" ? "💵 Nağd" : "💳 Kart"}${r.prefsText ? " · " + esc(r.prefsText) : ""}${r.note ? " · “" + esc(r.note) + "”" : ""}</div>
+  <div class="row" style="margin-top:10px"><button class="btn sec" data-skip="${r.id}">Keç</button><button class="btn" data-acc="${r.id}">Qəbul et</button></div></div>`;
+}
+let activeTick = null;
+function renderActive(el) {
+  const r = S.active, st = r.status;
+  const title = { accepted: "Sərnişinə doğru gedin", arrived: "Sərnişini gözləyirsiniz", ongoing: "Səfər davam edir" }[st];
+  const target = st === "ongoing" ? r.dropoff : r.pickup;
+  const stops = (r.stops || []).map((s) => `<div class="a">➕ ${esc((s.addr || "").split(",")[0])}</div>`).join("");
+  const wf = waitFee(r), tot = money((+r.price || 0) + wf);
+  el.innerHTML = `<div class="card"><span class="badge ${st === "ongoing" ? "" : "w"}">${title}</span><div class="p" style="font-size:30px;font-weight:800;margin:8px 0;color:var(--em)">${tot} ₼</div>
+    <div class="mut">${esc(r.name || "Sərnişin")} · ${esc(r.km)} km · ${r.pay === "cash" ? "💵 Nağd" : "💳 Kart"}${wf ? " · gözləmə +" + money(wf) + " ₼" : ""}</div></div>
+    <div class="card"><div class="a">📍 ${esc(r.pickup.addr || "")}</div>${stops}<div class="a">🏁 ${esc((r.dropoff && r.dropoff.addr) || "")}</div>${r.prefsText ? `<div class="mut">${esc(r.prefsText)}</div>` : ""}${r.note ? `<div class="mut">“${esc(r.note)}”</div>` : ""}</div>
+    <div class="row"><a class="btn sec" href="tel:${esc(r.phone || "")}">📞 Zəng</a><a class="btn sec" href="sms:${esc(r.phone || "")}">💬 SMS</a></div>
+    <a class="btn" style="margin-top:10px" target="_blank" rel="noopener" href="${navUrl(target)}">🧭 Naviqasiya</a>
+    ${st === "accepted" ? `<button class="btn" id="aArr" style="margin-top:10px;background:var(--sea)">📍 Çatdım</button>` : ""}
+    ${st === "arrived" ? `<button class="btn" id="aStart" style="margin-top:10px">▶ Səfəri başlat</button><p class="mut" id="wTxt" style="text-align:center"></p>` : ""}
+    ${st === "ongoing" ? `<button class="btn" id="aDone" style="margin-top:10px">✅ Səfəri bitir</button>` : ""}
+    ${st !== "ongoing" ? `<button class="btn red" id="aCan" style="margin-top:10px">Ləğv et</button>` : ""}`;
+  if ($("aArr")) $("aArr").onclick = () => setStatus(r, "arrived");
+  if ($("aStart")) $("aStart").onclick = () => setStatus(r, "ongoing");
+  if ($("aDone")) $("aDone").onclick = () => { if (confirm("Səfəri bitirmək istəyirsiniz? Sərnişindən " + tot + " ₼ alın.")) setStatus(r, "completed"); };
+  if ($("aCan")) $("aCan").onclick = () => cancelActive(r);
+  clearInterval(activeTick);
+  if (st === "arrived") activeTick = setInterval(() => { const x = $("wTxt"); if (!x || !S.active) return clearInterval(activeTick); const t = Math.floor((Date.now() - r.arrivedAtMs) / 1000), fr = ((r.tariff && r.tariff.waitFree) != null ? r.tariff.waitFree : S.settings.waitFree) * 60, left = fr - t; x.textContent = left > 0 ? `Pulsuz gözləmə: ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `Pulsuz gözləmə bitdi · +${money(waitFee(r))} ₼`; }, 1000);
+}
+
+/* ---------------- Qazanc ---------------- */
+function renderEarn() {
+  show("earn"); const now = new Date(), d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), w0 = d0 - ((now.getDay() + 6) % 7) * 86400000;
+  const sum = (from) => S.history.filter((r) => (r.completedAtMs || 0) >= from).reduce((a, r) => a + (+r.finalPrice || +r.price || 0), 0), cnt = (from) => S.history.filter((r) => (r.completedAtMs || 0) >= from).length;
+  $("v-earn").innerHTML = `<h2>Qazanc</h2><div class="stat"><div><span class="mut">Bu gün</span><b>${money(sum(d0))} ₼</b><span class="mut">${cnt(d0)} səfər</span></div><div><span class="mut">Bu həftə</span><b>${money(sum(w0))} ₼</b><span class="mut">${cnt(w0)} səfər</span></div></div>
+  <p class="mut">Göstərilən məbləğ komissiyadan əvvəlki ümumi gəlirdir.</p><h3 style="margin-top:14px">Son səfərlər</h3>`
+    + (S.history.length ? S.history.slice(0, 30).map((r) => `<div class="ride"><div class="row" style="justify-content:space-between"><b>${money(r.finalPrice || r.price)} ₼</b><span class="mut">${r.completedAtMs ? new Date(r.completedAtMs).toLocaleString("az-AZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</span></div><div class="mut">${esc((r.pickup.addr || "").split(",")[0])} → ${esc(((r.dropoff && r.dropoff.addr) || "").split(",")[0])}${r.rating ? " · ⭐ " + r.rating : ""}</div></div>`).join("") : `<div class="card mut" style="text-align:center">Hələ tamamlanmış səfər yoxdur</div>`);
+}
+
+/* ---------------- Profil ---------------- */
+function renderMe() {
+  show("me"); const p = S.prof;
+  $("v-me").innerHTML = `<h2>Profil</h2><div class="card"><h3>${esc(p.name)}</h3><div class="mut">${esc(p.phone)}<br>${esc(p.color)} ${esc(p.car)} · ${esc(p.plate)}<br>Sinif: ${esc((CLASSES.find((c) => c[0] === p.cls) || [, p.cls])[1])} · ⭐ ${(+p.rating || 5).toFixed(1)}</div></div>
+  <button class="btn sec" id="mEd">Məlumatları dəyiş</button>
+  <a class="btn sec" style="margin-top:10px" href="privacy-policy.html">Gizlilik siyasəti</a>
+  <a class="btn sec" style="margin-top:10px" href="delete-account.html">Hesabın silinməsi</a>
+  <a class="btn sec" style="margin-top:10px" href="https://wa.me/994702484852">Dəstək (WhatsApp)</a>
+  <button class="btn red" id="mOut" style="margin-top:10px">Çıxış</button>
+  <button class="btn sec" id="mDel" style="margin-top:10px;color:#ff7b8c">Hesabı və məlumatlarımı sil</button>`;
+  $("mEd").onclick = () => profView(true);
+  $("mOut").onclick = async () => { if (S.active) return toast("Aktiv sifariş var"); await setOnline(false); signOut(auth); };
+  $("mDel").onclick = async () => {
+    if (S.active) return toast("Aktiv sifariş var");
+    if (!confirm("Hesabınız və bütün sürücü məlumatlarınız həmişəlik silinəcək. Davam edilsin?")) return;
+    const u = auth.currentUser, uid = u.uid;
+    const last = u.metadata && u.metadata.lastSignInTime ? Date.parse(u.metadata.lastSignInTime) : 0;
+    if (Date.now() - last > 5 * 60 * 1000) { toast("Təhlükəsizlik üçün çıxış edib yenidən daxil olun, sonra hesabı silin", 5500); return; }
+    try {
+      await setOnline(false);
+      await deleteDoc(doc(db, "taxiDrivers", uid)).catch(() => {});
+      await deleteDoc(doc(db, "taxiDriverProfiles", uid));
+      await deleteUser(u);
+      toast("Hesabınız silindi");
+    } catch (e) { toast(fbErr(e), 4000); setTimeout(() => location.reload(), 1500); }
+  };
+}
+
+/* ---------------- Marşrut ---------------- */
+function route() {
+  if (!S.me) return authView();
+  if (!S.prof) return profView(false);
+  if (!S.prof.approved) return waitView();
+  if (S.tab === "earn") return renderEarn();
+  if (S.tab === "me") return renderMe();
+  renderHome();
+}
+async function loadSettings() { try { const d = await getDoc(doc(db, "settings", "taxi")); if (d.exists()) { const v = d.data(); if (v.waitFree != null) S.settings.waitFree = +v.waitFree; if (v.waitPerMin != null) S.settings.waitPerMin = +v.waitPerMin; } } catch (e) {} }
+
+onAuthStateChanged(auth, (u) => {
+  S.me = u;
+  if (unsubProf) { unsubProf(); unsubProf = null; } if (unsubActive) { unsubActive(); unsubActive = null; } if (unsubRides) { unsubRides(); unsubRides = null; }
+  if (!u) { S.prof = null; S.active = null; stopGeo(); return authView(); }
+  show("load"); loadSettings();
+  unsubProf = onSnapshot(doc(db, "taxiDriverProfiles", u.uid), (d) => {
+    const wasApproved = S.prof && S.prof.approved; S.prof = d.exists() ? d.data() : null;
+    if (S.prof && S.prof.approved && !wasApproved) { watchActive(); if (S.online) { startGeo(); watchRides(); pushState(); } }
+    route();
+  }, (e) => { toast(fbErr(e), 4000); route(); });
+});
+
+if ("serviceWorker" in navigator && !NATIVE) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>

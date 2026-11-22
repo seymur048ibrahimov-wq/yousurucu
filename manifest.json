@@ -1,0 +1,25 @@
+{
+  "id": "./",
+  "name": "Go Route Sürücü",
+  "short_name": "Go Route Sürücü",
+  "description": "Go Route Taksi sürücüləri üçün: sifariş qəbulu, naviqasiya və qazanc.",
+  "lang": "az",
+  "dir": "ltr",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04100F",
+  "theme_color": "#05100F",
+  "categories": ["business", "navigation"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "icon-48.png", "sizes": "48x48", "type": "image/png", "purpose": "any" },
+    { "src": "icon-96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
+    { "src": "icon-144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
